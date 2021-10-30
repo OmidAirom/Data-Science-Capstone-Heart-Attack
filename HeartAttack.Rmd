@@ -1,0 +1,803 @@
+---
+title: "Data Science Capstone : Heart Attack Prediction"
+author: "Omid Airom"
+date: "10/27/2021"
+output:
+  pdf_document: default
+  word_document: default
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(ggplot2)
+library(caret)
+library(dplyr)
+library(class)
+```
+
+# Introduction
+
+This project report is provided for the final project of the Data Science : Capstone course provided by Harvard University & Edx. The data has been downloaded from the Kaggle website and is the data of 1025 patients which shows either each patient with its own data has experienced heart attack or not.
+Worldwide, about 15.9 million myocardial infarctions occurred in 2015.
+Heart disease is one in all the foremost vital human diseases. The curing of all the diseases have a greater scope but when it comes to heart , the accuracy and the risk factors are in down line. People who suffer from the symptoms are aware only during the last stages of occurrences and it becomes difficult for the doctors to treat them as well. To bring out a solution that is more efficient, machine learning algorithms are used for testing the attributes of the patients and bring out their issues earlier.
+Prediction is used to find the future results based upon the current trends. Machine learning algorithms are used for the prediction mostly when there is a need for higher accuracy rates than the existing system and to provide best results. The traditional methods have less scope than the computer based test results.
+It will be useful for the medical practitioners to treat the patient with higher accuracy rate of the computer aided diagnosis produced by the machine learning algorithms and it also helps them to treat the patients at the earliest based on their severity rates.
+In this project i first loaded the data, then explored it and took a look at each feature of the patients data and at last built 3 models with the original data and the normalized data and reached the accuracy of 0.883.
+
+# Exploring the Data 
+## Data Analysis
+
+As mentioned before the data includes 1025 rows each with 14 feature for each of the 1025 patients.
+the features are as following :
+
+Age    
+Gender (sex) 
+Chest Pain Type (cp)   
+Resting Blood Pressure (trestbps)     
+Cholesterol (chol)    
+Fasting Blood Sugar (fbs)
+Resting Electrocardiographic Results (restecg)   
+Maximum Heart Rate Achieved (thalach)    
+Exercise Induced Angina (exang)               
+ST Depression Induced by Exercise Relative to Rest (oldpeak)    
+Slope of the Peak Exercise ST Segment             
+Number of Major Vessels (ca)                   
+Thalassemia Blood Disorder (thal)      
+Presence of Heart Disease (target)     
+
+# Exploring the features
+
+Taking a look at the first rows of the data :
+```{r, echo = FALSE}
+data <- read.csv("/Users/omid/Desktop/harvard/heart/heart//heart.csv-edx.xls")
+knitr::kable(head(data, 5))
+```
+
+The dimension of the data :
+```{r, echo = FALSE}
+dim(data)
+```
+
+The number of positive and negative cases and the summary of the whole data :
+```{r, echo = FALSE}
+targets <- factor(data$target, levels = c(0, 1),
+                   labels = c("negative", "positive"))
+knitr::kable(table(targets))
+
+summary(data)
+```
+\pagebreak
+## Age 
+
+Age is the first feature in the data we have. In this data we can see that the range of the age feature is between 29 and 77 years. the median is 56 and we have a mean equal to 54.43.
+According to the histogram of the age feature we can see that most of the patients are between 40 and 70 and most of the patients are near to 60 years old. 
+
+```{r, echo = FALSE, fig.height=3, fig.width=5,  fig.align='center'}
+summary(data$age)
+
+data %>% ggplot(aes(age)) +
+  geom_density(color = "#00AFBB") +
+  scale_x_log10() +
+  xlab("Age") + 
+  ylab("Patient")
+
+data %>%
+  filter(target == 1) %>%
+  ggplot(aes(age)) +
+  geom_density(color = "#00AFBB") +
+  scale_x_log10() +
+  xlab("Age") + 
+  ylab("Patients with Heart Attack")
+```
+So we can see that the age of the patient effects heart attack and most of the positive cases were for the patients between 40 and 70.
+
+\pagebreak
+## Sex
+
+The next feature in the data is the sex column. In the original data women are shown with "0" and men are shown with "1". I changed it to female and male. We can see that there are 312 women which here are 226 cases with heart attack in them.
+
+```{r, echo = FALSE, fig.height=3, fig.width=5,  fig.align='center'}
+data$sex <- factor(data$sex, levels = c(0, 1),
+                   labels = c("female", "male"))
+
+knitr::kable(table(data$sex))
+
+positive_women <- nrow(data %>% filter(sex == "female" & target == 1))
+total_women <- nrow(data %>% filter(sex == "female"))
+ratio_women <- positive_women / total_women
+
+positive_men <- nrow(data %>% filter(sex == "male" & target == 1))
+total_men <- nrow(data %>% filter(sex == "male"))
+ratio_men <- positive_men / total_men
+
+data %>% ggplot(aes(sex, fill = sex)) +
+  geom_bar() +
+  xlab("Gender") + 
+  ylab("Number of Patients")
+
+sex_tibble <- tibble(gender = "total women", number = total_women)
+sex_tibble <- bind_rows(sex_tibble, tibble(gender = "positive women" 
+                                         ,number = positive_women ))
+sex_tibble <- bind_rows(sex_tibble, tibble(gender = "positive women to total women ratio" 
+                                         ,number = ratio_women ))
+sex_tibble <- bind_rows(sex_tibble, tibble(gender = "total men" 
+                                         ,number = total_men ))
+sex_tibble <- bind_rows(sex_tibble, tibble(gender = "positive men" 
+                                         ,number = positive_men ))
+sex_tibble <- bind_rows(sex_tibble, tibble(gender = "positive men to total men ratio" 
+                                         ,number = ratio_men ))
+sex_tibble %>% knitr::kable()
+```
+
+So we can see that near 72.5% of the total women in this data are positive cases while this ration is only 42% in men. This shows that the gender of the patients has a great effect in heart attack and women suffer more than men.
+
+\pagebreak
+## Chest Pain
+
+The next feature in the patients data is the chest pain. In the data the chest pain is defined with four values including ("0", "1", "2", "3").
+
+```{r, echo = FALSE, fig.height=3, fig.width=5,  fig.align='center'}
+
+knitr::kable(table(data$cp))
+
+data$cp <- factor(data$cp, levels = c(0, 1, 2, 3),
+                   labels = c("0", "1", "2", "3"))
+data %>% ggplot(aes(cp, fill = cp)) +
+  geom_bar() +
+  xlab("Chest Pain Type") + 
+  ylab("Number of Patients")
+
+data %>%
+  filter(target == 1) %>%
+  ggplot(aes(cp, fill = cp)) +
+  geom_bar() +
+  xlab("Chest Pain Type") + 
+  ylab("Patients with Heart Attack")
+```
+\pagebreak
+```{r, echo = FALSE, fig.height=3, fig.width=5,  fig.align='center'}
+type0_cp_pos <- nrow(data %>% filter(cp == 0 & target == 1))
+type0_cp <- nrow(data %>% filter(cp == 0))
+type0_cp_ratio <- type0_cp_pos / type0_cp
+
+type1_cp_pos <- nrow(data %>% filter(cp == 1 & target == 1))
+type1_cp <- nrow(data %>% filter(cp == 1))
+type1_cp_ratio <- type1_cp_pos / type1_cp
+
+type2_cp_pos <- nrow(data %>% filter(cp == 2 & target == 1))
+type2_cp <- nrow(data %>% filter(cp == 2))
+type2_cp_ratio <- type2_cp_pos / type2_cp
+
+type3_cp_pos <- nrow(data %>% filter(cp == 3 & target == 1))
+type3_cp <- nrow(data %>% filter(cp == 3))
+type3_cp_ratio <- type3_cp_pos / type3_cp
+
+cp_tibble <- tibble(chest_pain = "type 0 total", number = type0_cp)
+cp_tibble <- bind_rows(cp_tibble, tibble(chest_pain = "type 0 positives" 
+                                         ,number = type0_cp_pos ))
+cp_tibble <- bind_rows(cp_tibble, tibble(chest_pain = "positive type 0 to total ratio" 
+                                         ,number = type0_cp_ratio ))
+cp_tibble <- bind_rows(cp_tibble, tibble(chest_pain = "type 1 total" 
+                                         ,number = type1_cp ))
+cp_tibble <- bind_rows(cp_tibble, tibble(chest_pain = "type 1 positive" 
+                                         ,number = type1_cp_pos ))
+cp_tibble <- bind_rows(cp_tibble, tibble(chest_pain = "positive type 1 to total ratio" 
+                                         ,number = type1_cp_ratio ))
+cp_tibble <- bind_rows(cp_tibble, tibble(chest_pain = "type 2 total" 
+                                         ,number = type2_cp ))
+cp_tibble <- bind_rows(cp_tibble, tibble(chest_pain = "type 2 positive" 
+                                         ,number = type2_cp_pos ))
+cp_tibble <- bind_rows(cp_tibble, tibble(chest_pain = "positive type 2 to total ratio" 
+                                         ,number = type2_cp_ratio ))
+cp_tibble <- bind_rows(cp_tibble, tibble(chest_pain = "type 3 total" 
+                                         ,number = type3_cp ))
+cp_tibble <- bind_rows(cp_tibble, tibble(chest_pain = "type 3 positive" 
+                                         ,number = type3_cp_pos ))
+cp_tibble <- bind_rows(cp_tibble, tibble(chest_pain = "positive type 3 to total ratio" 
+                                         ,number = type3_cp_ratio ))
+cp_tibble %>% knitr::kable()
+```
+We can see that most of the patients who had heart attacks were those who had the type 2 chest pain and after that type 2 and 1 were in the second and third position with a little difference. But the import point is that 80% of the patients with chest pain type 1 had heart attacks which means type 1 is the one which most causes heart attack, then there was type 2 with 77%, type 3 with 66% and at last type 0 with 24.5%.
+
+\pagebreak
+## Resting Blood Pressure 
+
+The next feature of the patients of the data is their resting blood pressure. We can see that most of the patients in the data have a resting blood pressure between 105 and 150. The median of the resting blood pressure is 130, the mean is 131.6 and the range of it is from 94 to 200.
+
+```{r, echo = FALSE, fig.height=3, fig.width=5,  fig.align='center'}
+summary(data$trestbps)
+
+data %>% ggplot(aes(trestbps)) +
+  geom_density(color = "#00AFBB") +
+  xlab("Resting Blood Pressure") + 
+  ylab("Number of Patients")
+
+data %>%
+  filter(target == 1) %>%
+  ggplot(aes(trestbps)) +
+  geom_density(color = "#00AFBB") +
+  xlab("Resting Blood Pressure") + 
+  ylab("Patients with Heart Attack")
+```
+We can see that most of the patients who had heart attack had a resting blood pressure from 110 to 145.
+
+\pagebreak
+## Cholesterol
+
+Another feature from the patients data is their Cholesterol. The range of the patients cholesterol is between 126 and 564, the mean is 246 which means the peak in the histogram would be in the left side and the median is equal to 240. Most of the patients cholesterol is 175 and 300.
+
+```{r, echo = FALSE, fig.height=3, fig.width=5,  fig.align='center'}
+summary(data$chol)
+
+data %>% ggplot(aes(chol)) +
+  geom_density(color = "#00AFBB") +
+  xlab("Cholesterol") + 
+  ylab("Number of Patients")
+
+data %>%
+  filter(target == 1) %>%
+  ggplot(aes(chol)) +
+  geom_density(color = "#00AFBB") +
+  xlab("Cholesterol") + 
+  ylab("Patients with Heart Attack")
+```
+
+It is clear that most of the patients who are in the positive cases have a cholesterol between 180 and 280.
+
+\pagebreak
+## Blood Sugar (fbs)
+
+One of the 13 feature of the patients data is their blood sugar, it is defined with 0 and 1 types and 872 patients had type 0 and 153 had type 1.
+
+
+```{r, echo = FALSE, fig.height=3, fig.width=5,  fig.align='center'}
+knitr::kable(table(data$fbs))
+
+data$fbs <- factor(data$fbs, levels = c(0, 1),
+                  labels = c("0", "1"))
+
+data %>% ggplot(aes(fbs, fill = fbs)) +
+  geom_bar() +
+  xlab("Blood Sugar") + 
+  ylab("Number of Patients")
+
+data %>%
+  filter(target == 1) %>%
+  ggplot(aes(fbs, fill = fbs)) +
+  geom_bar() +
+  xlab("Blood Sugar") + 
+  ylab("Patients with Heart Attack")
+```
+
+\pagebreak
+```{r, echo = FALSE, fig.height=3, fig.width=5,  fig.align='center'}
+positive_0 <- nrow(data %>% filter(fbs == 0 & target == 1))
+total_0 <- nrow(data %>% filter(fbs == 0))
+ratio_0 <- positive_0 / total_0
+
+positive_1 <- nrow(data %>% filter(fbs == 1 & target == 1))
+total_1 <- nrow(data %>% filter(fbs == 1))
+ratio_1 <- positive_1 / total_1
+
+fbs_tibble <- tibble(fbs = "total type 0", number = total_0)
+fbs_tibble <- bind_rows(fbs_tibble, tibble(fbs = "positive type 0" 
+                                         ,number = positive_0 ))
+fbs_tibble <- bind_rows(fbs_tibble, tibble(fbs = "positive type 0 to total ratio" 
+                                         ,number = ratio_0 ))
+fbs_tibble <- bind_rows(fbs_tibble, tibble(fbs = "total type 1" 
+                                         ,number = total_1 ))
+fbs_tibble <- bind_rows(fbs_tibble, tibble(fbs = "positive type 1" 
+                                         ,number = positive_1 ))
+fbs_tibble <- bind_rows(fbs_tibble, tibble(fbs = "positive type 1 to total ratio" 
+                                         ,number = ratio_1 ))
+fbs_tibble %>% knitr::kable()
+```
+
+We can see that most of the patients had type 0 blood sugar, also most of the positive cases had type 0 blood pressure but, this does not mean when a patient has type 0 blood pressure we can say that this patient has had heart attack before. Because due to the ratios (proportions) we can see that 46% of the patients with type 0 blood sugar had heart attacks but this number is 52% for those with type 1 blood sugar which means patients with type 1 blood sugar are more likely to have heart attacks but in total we can also build are models without the blood sugar effect to see how it will be because 46 and 52 are close numbers.
+
+\pagebreak
+## Electrocardiographic
+
+The next feature is the Electrocardiograph which has three values : 0, 1, 2. There are 497 patients with the value 0, 513 with 1 and just 15 with 2 in the 1025v patients in the data.
+
+```{r, echo = FALSE, fig.height=3, fig.width=5,  fig.align='center'}
+knitr::kable(table(data$restecg))
+
+data$restecg <- factor(data$restecg, levels = c(0, 1, 2),
+                   labels = c("0", "1", "2"))
+
+data %>% ggplot(aes(restecg, fill = restecg)) +
+  geom_bar() +
+  xlab("Electrocardiographic") + 
+  ylab("Number of Patients")
+
+data %>%
+  filter(target == 1) %>%
+  ggplot(aes(restecg, fill = restecg)) +
+  geom_bar() +
+  xlab("Electrocardiographic") + 
+  ylab("Patients with Heart Attack")
+```
+
+\pagebreak
+```{r, echo = FALSE, fig.height=3, fig.width=5,  fig.align='center'}
+el_positive_0 <- nrow(data %>% filter(restecg == 0 & target == 1))
+el_total_0 <- nrow(data %>% filter(restecg == 0))
+el_ratio_0 <- el_positive_0 / el_total_0
+
+el_positive_1 <- nrow(data %>% filter(restecg == 1 & target == 1))
+el_total_1 <- nrow(data %>% filter(restecg == 1))
+el_ratio_1 <- el_positive_1 / el_total_1
+
+el_positive_2 <- nrow(data %>% filter(restecg == 2 & target == 1))
+el_total_2 <- nrow(data %>% filter(restecg == 2))
+el_ratio_2 <- el_positive_2 / el_total_2
+
+restecg_tibble <- tibble(restecg = "total type 0", number = el_total_0)
+restecg_tibble <- bind_rows(restecg_tibble, tibble(restecg = "positive type 0" 
+                                         ,number = el_positive_0 ))
+restecg_tibble <- bind_rows(restecg_tibble, tibble(restecg = "positive type 0 to total ratio" 
+                                         ,number = el_ratio_0 ))
+restecg_tibble <- bind_rows(restecg_tibble, tibble(restecg = "total type 1" 
+                                         ,number = el_total_1 ))
+restecg_tibble <- bind_rows(restecg_tibble, tibble(restecg = "positive type 1" 
+                                         ,number = el_positive_1 ))
+restecg_tibble <- bind_rows(restecg_tibble, tibble(restecg = "positive type 1 to total ratio" 
+                                         ,number = el_ratio_1 ))
+restecg_tibble <- bind_rows(restecg_tibble, tibble(restecg = "total type 1" 
+                                         ,number = el_total_2 ))
+restecg_tibble <- bind_rows(restecg_tibble, tibble(restecg = "positive type 2" 
+                                         ,number = el_positive_2 ))
+restecg_tibble <- bind_rows(restecg_tibble, tibble(restecg = "positive type 2 to total ratio" 
+                                         ,number = el_ratio_2 ))
+restecg_tibble %>% knitr::kable()
+```
+We can see that most of the patients had a type 0 or 1 Electrocardiographic in their data but only 15 had a type 2 and also the ratio of positive cases to total in each type is equal to 43%, 60% and 20%.
+
+\pagebreak
+## Max Heart Rate
+
+The maximum heart rate of the patients is another factor which can effect the occurrence of heart attack in them. In the data we have we can see that most of the patients have a max heart rate near 162, the mean of the data is 149.1 and the median is 152. Also its noteworthy to mention that the range of the data is between 71 and 202.
+
+```{r, echo = FALSE, fig.height=3, fig.width=5,  fig.align='center'}
+summary(data$thalach)
+
+data %>% ggplot(aes(thalach)) +
+  geom_density(color = "#00AFBB") +
+  xlab("Max Heart Rate") + 
+  ylab("Number of Patients")
+
+data %>%
+  filter(target == 1) %>%
+  ggplot(aes(thalach)) +
+  geom_density(color = "#00AFBB") +
+  xlab("Cholesterol") + 
+  ylab("Patients with Heart Attack")
+```
+According to the histogram that shows the patients with heart attack we can understand hat most of them were in the range of 145 to 185.
+
+\pagebreak
+## Angina
+
+Another one of the columns of the patients data is the Angina column which has values equal to 0 or 1. From the 1025 patients in the data we are exploring 680 have type 0 angina and 345 have type 1.
+
+```{r, echo = FALSE, fig.height=3, fig.width=5,  fig.align='center'}
+knitr::kable(table(data$exang))
+
+data$exang <- factor(data$exang, levels = c(0, 1),
+                       labels = c("0", "1"))
+data %>% ggplot(aes(exang, fill = exang)) +
+  geom_bar() +
+  xlab("Angina") + 
+  ylab("Number of Patients")
+
+data %>%
+  filter(target == 1) %>%
+  ggplot(aes(exang, fill = exang)) +
+  geom_bar() +
+  xlab("Electrocardiographic") + 
+  ylab("Patients with Heart Attack")
+```
+
+\pagebreak
+```{r, echo = FALSE, fig.height=3, fig.width=5,  fig.align='center'}
+ang_positive_0 <- nrow(data %>% filter(exang == 0 & target == 1))
+ang_total_0 <- nrow(data %>% filter(exang == 0))
+ang_ratio_0 <- ang_positive_0 / ang_total_0
+
+ang_positive_1 <- nrow(data %>% filter(exang == 1 & target == 1))
+ang_total_1 <- nrow(data %>% filter(exang == 1))
+ang_ratio_1 <- ang_positive_1 / ang_total_1
+
+angina_tibble <- tibble(angina = "total type 0", number = ang_total_0)
+angina_tibble <- bind_rows(angina_tibble, tibble(angina = "positive type 0" 
+                                         ,number = ang_positive_0 ))
+angina_tibble <- bind_rows(angina_tibble, tibble(angina = "positive type 0 to total ratio" 
+                                         ,number = ang_ratio_0 ))
+angina_tibble <- bind_rows(angina_tibble, tibble(angina = "total type 1" 
+                                         ,number = ang_total_1 ))
+angina_tibble <- bind_rows(angina_tibble, tibble(angina = "positive type 1" 
+                                         ,number = ang_positive_1 ))
+angina_tibble <- bind_rows(angina_tibble, tibble(angina = "positive type 1 to total ratio" 
+                                         ,number = ang_ratio_1 ))
+angina_tibble %>% knitr::kable()
+```
+
+We can see that among the patients with type 0 angina about 67% of them have had heart attack before and are in the positive cases in the data but this number is only 20% among the patients with type 1 angina which means if a person has type 0 angina that person is more likely to have a heart attack in the future.
+
+\pagebreak
+## Oldpeak
+
+The Oldpeak is the next column in the data which has a mean equal to 1.072, and a range between 0 and 6.2. The trend in our histogram shows that by the increase of oldpeak we have a less patients. This trend is also the same in the histogram with positive cases but in this one the decrease of patients by the increase of oldpeak is faster.
+
+```{r, echo = FALSE, fig.height=3, fig.width=5,  fig.align='center'}
+summary(data$oldpeak)
+
+data %>% ggplot(aes(oldpeak)) +
+  geom_density(color = "#00AFBB") +
+  xlab("Oldpeak") + 
+  ylab("Number of Patients")
+
+data %>%
+  filter(target == 1) %>%
+  ggplot(aes(oldpeak)) +
+  geom_density(color = "#00AFBB") +
+  xlab("Oldpeak") + 
+  ylab("Number of Patients")
+```
+
+\pagebreak
+## Slope
+
+The next feature in the data of the patients is Slope. Slope has three values including 0, 1 and 2. There are 74 patients with type 0 slope, 482 with type 1 and 469 with type 2.
+
+```{r, echo = FALSE, fig.height=3, fig.width=5,  fig.align='center'}
+knitr::kable(table(data$slope))
+
+data$slope <- factor(data$slope, levels = c(0, 1, 2),
+                   labels = c("0", "1", "2"))
+
+data %>% ggplot(aes(slope, fill = slope)) +
+  geom_bar() +
+  xlab("Slope") + 
+  ylab("Number of Patients")
+
+data %>%
+  filter(target == 1) %>%
+  ggplot(aes(slope, fill = slope)) +
+  geom_bar() +
+  xlab("Slope") + 
+  ylab("Patients with Heart Attack")
+```
+
+\pagebreak
+```{r, echo = FALSE, fig.height=3, fig.width=5,  fig.align='center'}
+sl_positive_0 <- nrow(data %>% filter(slope == 0 & target == 1))
+sl_total_0 <- nrow(data %>% filter(slope == 0))
+sl_ratio_0 <- sl_positive_0 / sl_total_0
+
+sl_positive_1 <- nrow(data %>% filter(slope == 1 & target == 1))
+sl_total_1 <- nrow(data %>% filter(slope == 1))
+sl_ratio_1 <- sl_positive_1 / sl_total_1
+
+sl_positive_2 <- nrow(data %>% filter(slope == 2 & target == 1))
+sl_total_2 <- nrow(data %>% filter(slope == 2))
+sl_ratio_2 <- sl_positive_2 / sl_total_2
+
+slope_tibble <- tibble(slope = "total type 0", number = sl_total_0)
+slope_tibble <- bind_rows(slope_tibble, tibble(slope = "positive type 0" 
+                                         ,number = sl_positive_0 ))
+slope_tibble <- bind_rows(slope_tibble, tibble(slope = "positive type 0 to total ratio" 
+                                         ,number = sl_ratio_0 ))
+slope_tibble <- bind_rows(slope_tibble, tibble(slope = "total type 1" 
+                                         ,number = sl_total_1 ))
+slope_tibble <- bind_rows(slope_tibble, tibble(slope = "positive type 1" 
+                                         ,number = sl_positive_1 ))
+slope_tibble <- bind_rows(slope_tibble, tibble(slope = "positive type 1 to total ratio" 
+                                         ,number = sl_ratio_1 ))
+slope_tibble <- bind_rows(slope_tibble, tibble(slope = "total type 2" 
+                                         ,number = sl_total_2 ))
+slope_tibble <- bind_rows(slope_tibble, tibble(slope = "positive type 2" 
+                                         ,number = sl_positive_2 ))
+slope_tibble <- bind_rows(slope_tibble, tibble(slope = "positive type 2 to total ratio" 
+                                         ,number = sl_ratio_2 ))
+slope_tibble %>% knitr::kable()
+```
+
+37% of the patients who had a type 0 slope have suffered hart attack and this number is for type 1 slope 32% and 3, 72% which shows patients with type 2 slope are the most in danger of heart attack and then there are type 0 and type 1.
+
+\pagebreak
+## CA
+
+The next feature in the data of the patients is CA. CA has five values including 0, 1, 2, 3 and 4. There are 578 patients with type 0 CA, 226 with type 1, 134 with type 2, 69 with type 3 and 18 with type 4.
+
+```{r, echo = FALSE, fig.height=3, fig.width=5,  fig.align='center'}
+knitr::kable(table(data$ca))
+
+data$ca <- factor(data$ca, levels = c(0, 1, 2, 3, 4),
+                     labels = c("0", "1", "2", "3", "4"))
+
+data %>% ggplot(aes(ca, fill = ca)) +
+  geom_bar() +
+  xlab("CA") + 
+  ylab("Number of Patients")
+
+data %>%
+  filter(target == 1) %>%
+  ggplot(aes(ca, fill = ca)) +
+  geom_bar() +
+  xlab("CA") + 
+  ylab("Patients with Heart Attack")
+```
+
+\pagebreak
+```{r, echo = FALSE, fig.height=3, fig.width=5,  fig.align='center'}
+ca_positive_0 <- nrow(data %>% filter(ca == 0 & target == 1))
+ca_total_0 <- nrow(data %>% filter(ca == 0))
+ca_ratio_0 <- ca_positive_0 / ca_total_0
+
+ca_positive_1 <- nrow(data %>% filter(ca == 1 & target == 1))
+ca_total_1 <- nrow(data %>% filter(ca == 1))
+ca_ratio_1 <- ca_positive_1 / ca_total_1
+
+ca_positive_2 <- nrow(data %>% filter(ca == 2 & target == 1))
+ca_total_2 <- nrow(data %>% filter(ca == 2))
+ca_ratio_2 <- ca_positive_2 / ca_total_2
+
+ca_positive_3 <- nrow(data %>% filter(ca == 3 & target == 1))
+ca_total_3 <- nrow(data %>% filter(ca == 3))
+ca_ratio_3 <- ca_positive_3 / ca_total_3
+
+ca_positive_4 <- nrow(data %>% filter(ca == 4 & target == 1))
+ca_total_4 <- nrow(data %>% filter(ca == 4))
+ca_ratio_4 <- ca_positive_4 / ca_total_4
+
+ca_tibble <- tibble(CA = "total type 0", number = ca_total_0)
+ca_tibble <- bind_rows(ca_tibble, tibble(CA = "positive type 0" 
+                                         ,number = ca_positive_0 ))
+ca_tibble <- bind_rows(ca_tibble, tibble(CA = "positive type 0 to total ratio" 
+                                         ,number = ca_ratio_0 ))
+ca_tibble <- bind_rows(ca_tibble, tibble(CA = "total type 1" 
+                                         ,number = ca_total_1 ))
+ca_tibble <- bind_rows(ca_tibble, tibble(CA = "positive type 1" 
+                                         ,number = ca_positive_1 ))
+ca_tibble <- bind_rows(ca_tibble, tibble(CA = "positive type 1 to total ratio" 
+                                         ,number = ca_ratio_1 ))
+ca_tibble <- bind_rows(ca_tibble, tibble(CA = "total type 2" 
+                                         ,number = ca_total_2 ))
+ca_tibble <- bind_rows(ca_tibble, tibble(CA = "positive type 2" 
+                                         ,number = ca_positive_2 ))
+ca_tibble <- bind_rows(ca_tibble, tibble(CA = "positive type 2 to total ratio" 
+                                         ,number = ca_ratio_2 ))
+ca_tibble <- bind_rows(ca_tibble, tibble(CA = "total type 3" 
+                                         ,number = ca_total_3 ))
+ca_tibble <- bind_rows(ca_tibble, tibble(CA = "positive type 3" 
+                                         ,number = ca_positive_3 ))
+ca_tibble <- bind_rows(ca_tibble, tibble(CA = "positive type 3 to total ratio" 
+                                         ,number = ca_ratio_3 ))
+ca_tibble <- bind_rows(ca_tibble, tibble(CA = "total type 4" 
+                                         ,number = ca_total_4 ))
+ca_tibble <- bind_rows(ca_tibble, tibble(CA = "positive type 4" 
+                                         ,number = ca_positive_4 ))
+ca_tibble <- bind_rows(ca_tibble, tibble(CA = "positive type 4 to total ratio" 
+                                         ,number = ca_ratio_4 ))
+
+ca_tibble %>% knitr::kable()
+```
+
+71% of the patients who had a type 0 CA have suffered hart attack and this number is for type 1 CA 29% , type 2 16%, type 3 13% and type 4 83% which shows patients with type 4 and after that type 0 are the most in danger and are more likely to have a heart attack.
+
+\pagebreak
+## Thalassemia
+
+The Last feature in the data of the patients is Thalassemia. Thalassemia has four values including 0, 1, 2 and 3. There are 7 patients with type 0 CA, 64 with type 1, 544 with type 2 and 410 with type 3.
+
+```{r, echo = FALSE, fig.height=3, fig.width=5,  fig.align='center'}
+knitr::kable(table(data$ca))
+
+data$thal <- factor(data$thal, levels = c(0, 1, 2, 3),
+                  labels = c("0", "1", "2", "3"))
+
+data %>% ggplot(aes(thal, fill = thal)) +
+  geom_bar() +
+  xlab("Thalassemia") + 
+  ylab("Number of Patients")
+
+data %>%
+  filter(target == 1) %>%
+  ggplot(aes(thal, fill = thal)) +
+  geom_bar() +
+  xlab("Thalassemia") + 
+  ylab("Patients with Heart Attack")
+```
+
+\pagebreak
+```{r, echo = FALSE, fig.height=3, fig.width=5,  fig.align='center'}
+t_positive_0 <- nrow(data %>% filter(thal == 0 & target == 1))
+t_total_0 <- nrow(data %>% filter(thal == 0))
+t_ratio_0 <- t_positive_0 / t_total_0
+
+t_positive_1 <- nrow(data %>% filter(thal == 1 & target == 1))
+t_total_1 <- nrow(data %>% filter(thal == 1))
+t_ratio_1 <- t_positive_1 / t_total_1
+
+t_positive_2 <- nrow(data %>% filter(thal == 2 & target == 1))
+t_total_2 <- nrow(data %>% filter(thal == 2))
+t_ratio_2 <- t_positive_2 / t_total_2
+
+t_positive_3 <- nrow(data %>% filter(thal == 3 & target == 1))
+t_total_3 <- nrow(data %>% filter(thal == 3))
+t_ratio_3 <- t_positive_3 / t_total_3
+
+t_tibble <- tibble(Thalassemia = "total type 0", number = t_total_0)
+t_tibble <- bind_rows(t_tibble, tibble(Thalassemia = "positive type 0" 
+                                         ,number = t_positive_0 ))
+t_tibble <- bind_rows(t_tibble, tibble(Thalassemia = "positive type 0 to total ratio" 
+                                         ,number = t_ratio_0 ))
+t_tibble <- bind_rows(t_tibble, tibble(Thalassemia = "total type 1" 
+                                         ,number = t_total_1 ))
+t_tibble <- bind_rows(t_tibble, tibble(Thalassemia = "positive type 1" 
+                                         ,number = t_positive_1 ))
+t_tibble <- bind_rows(t_tibble, tibble(Thalassemia = "positive type 1 to total ratio" 
+                                         ,number = t_ratio_1 ))
+t_tibble <- bind_rows(t_tibble, tibble(Thalassemia = "total type 2" 
+                                         ,number = t_total_2 ))
+t_tibble <- bind_rows(t_tibble, tibble(Thalassemia = "positive type 2" 
+                                         ,number = t_positive_2 ))
+t_tibble <- bind_rows(t_tibble, tibble(Thalassemia = "positive type 2 to total ratio" 
+                                         ,number = t_ratio_2 ))
+t_tibble <- bind_rows(t_tibble, tibble(Thalassemia = "total type 3" 
+                                         ,number = t_total_3 ))
+t_tibble <- bind_rows(t_tibble, tibble(Thalassemia = "positive type 3" 
+                                         ,number = t_positive_3 ))
+t_tibble <- bind_rows(t_tibble, tibble(Thalassemia = "positive type 3 to total ratio" 
+                                         ,number = t_ratio_3 ))
+
+t_tibble %>% knitr::kable()
+```
+
+43% of the patients who had a type 0 Thalassemia have suffered hart attack and this number is for type 1 Thalassemia 33% , type 2 76% and type 3 22%, which shows patients with type 2 are the most in danger and are more likely to have a heart attack and should start their treatment.
+
+\pagebreak
+# Models
+
+Now the features described in the previous parts are going to be used to build the three models below :
+
+1- linear regression, lm
+
+2- logistic regression, glm 
+
+3- k nearest neighbors  
+
+not only the three models mentioned above are going to be built based on the data we had, after that we are going to build a function which normalizes the data and changes all of them into a range between 0 and 1 and the three mentioned models are going to be built once again with the normalized data.
+
+First of all the 1025 data from the patients is going to be split into two new sets, train and test set which they are going to be used to first train the models with the train set and then evaluate them with the test set. To so this the createDataPartition() function is going to be used.
+
+```{r, echo = TRUE}
+set.seed(1)
+index <- createDataPartition(y = data$target, times = 1, p = 0.1, list = FALSE)
+train <- data[-index,]
+test <- data[index,]
+
+dim(train) # the train data set is 90% of the data
+dim(test) # the test data set is 10% of the data
+```
+
+### first model : linear regression, lm
+Now the first model which is the linear regression model can be trained and evaluated.
+
+```{r, echo = TRUE}
+train_1 <- train(target~., method = "lm", data = train)
+prediction_1 <- round(predict(train_1, test))
+confusionmatrix_1 <- confusionMatrix(as.factor(prediction_1), as.factor(test$target))
+acc_1 <- confusionmatrix_1$overall[["Accuracy"]]
+results <- tibble(model = "linear regression, lm", Accuracy = acc_1)
+results %>% knitr::kable()
+```
+
+\pagebreak
+### second model : logistic regression, glm
+The second model as mentioned before is the logistic regression model.
+
+```{r, echo = TRUE}
+train_2 <- train(target~., method="glm", train)
+prediction_2 <- round(predict(train_2, test))
+confusionmatrix_2 <- confusionMatrix(as.factor(prediction_2), as.factor(test$target))
+acc_2 <- confusionmatrix_2$overall[["Accuracy"]]
+results <- bind_rows(results, tibble(model = "logistic regression, glm" 
+                                         ,Accuracy = acc_2 ))
+results %>% knitr::kable()
+```
+
+### last model : knn
+And the last model is the k nearest neighbors.
+
+```{r, echo = TRUE}
+train_3 <- train(target~., method="knn", train)
+prediction_3 <- round(predict(train_3, test))
+confusionmatrix_3 <- confusionMatrix(as.factor(prediction_3), as.factor(test$target))
+acc_3 <- confusionmatrix_3$overall[["Accuracy"]]
+results <- bind_rows(results, tibble(model = "k nearest neighbors" 
+                                     ,Accuracy = acc_3 ))
+results %>% knitr::kable()
+```
+
+\pagebreak
+## Normalizing the Data
+Now the same models are going to be built but just with new data that is the normalized version of the data used to build the three previous models.
+
+Normalizing function :
+
+```{r, echo = TRUE}
+new_data <- read.csv("/Users/omid/Desktop/harvard/heart/heart//heart.csv-edx.xls")
+
+normalize <- function(x) {
+  return ((x - min(x)) / (max(x) - min(x)))
+}
+
+normal <- as.data.frame(lapply(new_data, normalize))
+```
+
+Also to do this new train and test data sets are needed from the normalized data:
+
+```{r, echo = TRUE}
+set.seed(1)
+index_normal <- createDataPartition(y = normal$target, times = 1, p = 0.1, list = FALSE)
+train_normal <- normal[-index_normal,]
+test_normal <- normal[index_normal,]
+
+dim(train_normal) # the train data set is 90% of the data
+dim(test_normal) # the test data set is 10% of the data
+```
+
+### first model with normalized data : linear regression, lm
+Now the first model which is the linear regression model can be trained and evaluated with the normalized data.
+```{r, echo = TRUE}
+train_1_normal <- train(target~., method = "lm", data = normal)
+prediction_1_normal <- round(predict(train_1_normal, test_normal))
+confusionmatrix_1_normal <- confusionMatrix(
+  as.factor(prediction_1_normal), as.factor(test_normal$target))
+acc_1_normal <- confusionmatrix_1_normal$overall[["Accuracy"]]
+results <- bind_rows(results, tibble(model = "linear regression, lm, normalized data" 
+                                     ,Accuracy = acc_1_normal ))
+```
+
+\pagebreak
+```{r, echo = TRUE}
+results %>% knitr::kable()
+```
+
+### second model with normalized data : logistic regression, glm
+The second model as mentioned before is the logistic regression model but now built with the normalized data.
+```{r, echo = TRUE}
+train_2_normal <- train(target~., method = "glm", data = normal)
+prediction_2_normal <- round(predict(train_2_normal, test_normal))
+confusionmatrix_2_normal <- confusionMatrix(
+  as.factor(prediction_2_normal), as.factor(test_normal$target))
+acc_2_normal <- confusionmatrix_2_normal$overall[["Accuracy"]]
+results <- bind_rows(results, tibble(model = "linear regression, glm, normalized data" 
+                                     ,Accuracy = acc_2_normal ))
+results %>% knitr::kable()
+```
+
+### last model with normalized data : knn
+And the last model is the k nearest neighbors with normalized data.
+```{r, echo = TRUE}
+train_3_normal <- train(target~., method = "knn", data = normal)
+prediction_3_normal <- round(predict(train_3_normal, test_normal))
+confusionmatrix_3_normal <- confusionMatrix(
+  as.factor(prediction_3_normal), as.factor(test_normal$target))
+acc_3_normal <- confusionmatrix_3_normal$overall[["Accuracy"]]
+results <- bind_rows(results, tibble(model = "k nearest neighbors normalized data" 
+                                     ,Accuracy = acc_3_normal ))
+results %>% knitr::kable()
+```
+
+# Conclusion
+
+According to the three models built with the original data and the normalized data we can see that it is possible to build a model with 94.1% accuracy to make predictions and saves the life of people in danger of having a heart attack. 
+
+In the three models built with the original and normalized data, the linear regression and logistic regression had better accuracy with the original data, both 90.2% in comparison to the knn model which had an accuracy equal to 68.9%. But when the normalized data is used to build the models and make predictions the linear and logistic regression models had an accuracy equal to 87.3% while the knn model had 94.1% of accuracy which means by normalizing the data and the using the knn model, better predictions can be made and therefore more lives can be saved.
+
+Also further studies can be done to find more features in the patients like smoking and etc. to make better and more accurate predictions.
